@@ -1,9 +1,11 @@
 package org.commcare.nfcreader;
 
+import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.database.Cursor;
+import android.graphics.Bitmap;
 import android.net.Uri;
 import android.nfc.FormatException;
 import android.nfc.NdefMessage;
@@ -21,14 +23,20 @@ import android.widget.TableRow;
 import android.widget.TextView;
 
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 
 import be.appfoundry.nfclibrary.activities.NfcActivity;
+import com.kairos.*;
 
-public class MainActivity extends NfcActivity {
+import org.json.JSONException;
+
+public class MainActivity extends NfcActivity implements KairosListener{
 
     TextView textView;
     TableLayout beerTable;
-    String currentUser = "";
+    static String currentUser = "";
+    static String currentCaseId = "";
+    Kairos kairos;
 
     final String TAG = "NfcMainActivity";
     private final String packageName = "org.commcare.dalvik.debug";
@@ -40,14 +48,55 @@ public class MainActivity extends NfcActivity {
     private final int WRITE_NFC = 1;
     private final int BUY_BEER_SELECTION = 2;
 
+    private final String GALLERY_ID = "9999";
+
+    private static final int CAMERA_REQUEST = 1888; // field
+
+
+    private void takePicture(String caseId){
+        currentCaseId = caseId;
+        Intent cameraIntent = new  Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE);
+        startActivityForResult(cameraIntent, CAMERA_REQUEST);
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        if (savedInstanceState != null) {
+            currentUser = savedInstanceState.getString("CURRENT_USER", "");
+            currentCaseId = savedInstanceState.getString("CURRENT_CASE_ID", "");
+        }
         setContentView(R.layout.activity_main);
         textView = findViewById(R.id.text_view);
         beerTable = findViewById(R.id.beer_table);
         textView.setTextSize(25);
         loadDataTable();
+        setupKairos();
+    }
+
+    @Override
+    public void onSaveInstanceState(Bundle savedInstanceState) {
+        super.onSaveInstanceState(savedInstanceState);
+        savedInstanceState.putString("CURRENT_USER", currentUser);
+        savedInstanceState.putString("CURRENT_CASE_ID", currentCaseId);
+    }
+
+    private void setupKairos() {
+        // instantiate a new kairos instance
+        kairos = new Kairos();
+        // set authentication
+        String app_id = "1bbb1b34";
+        String api_key = "93fdc40b3d877ea0d64a2c90aca725d2";
+        kairos.setAuthentication(this, app_id, api_key);
+    }
+
+    private void registerFace(Bitmap bitmap, String caseId) {
+        Log.i(TAG, "Registering face for caseId " + caseId);
+        try {
+            kairos.enroll(bitmap, caseId, GALLERY_ID, null, null, null, this);
+        } catch (JSONException | UnsupportedEncodingException e) {
+            e.printStackTrace();
+        }
     }
 
     @Override
@@ -143,6 +192,7 @@ public class MainActivity extends NfcActivity {
         String sessionString = buildSessionString("m2", "m2-f0", caseId);
         intent.putExtra(SESSION_REQUEST_KEY, sessionString);
         currentUser = getName(caseId);
+        currentCaseId = caseId;
         textView.setText(String.format("Writing bracelet for %s", currentUser));
         this.startActivityForResult(intent, WRITE_NFC);
     }
@@ -195,7 +245,7 @@ public class MainActivity extends NfcActivity {
     }
 
     private void createOptionsDialog(final String caseId) {
-        CharSequence options[] = new CharSequence[] {"Write NFC", "Buy Beer"};
+        CharSequence options[] = new CharSequence[]{"Write NFC", "Buy Beer", "Register Face"};
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("Select Action");
         builder.setItems(options, new DialogInterface.OnClickListener() {
@@ -207,6 +257,9 @@ public class MainActivity extends NfcActivity {
                         break;
                     case 1:
                         makeBuyBeerCallout(caseId);
+                        break;
+                    case 2:
+                        takePicture(caseId);
                         break;
                 }
             }
@@ -246,6 +299,19 @@ public class MainActivity extends NfcActivity {
         } else if (requestCode == 1) {
             textView.setText(String.format("%s successfully wrote NFC tag, you're on to something!", currentUser));
             loadDataTable();
+        } else if (requestCode == CAMERA_REQUEST && resultCode == Activity.RESULT_OK) {
+            Bitmap picture = (Bitmap) data.getExtras().get("data");
+            registerFace(picture, currentCaseId);
         }
+    }
+
+    @Override
+    public void onSuccess(String s) {
+        Log.i(TAG, "Kairos success with response " + s);
+    }
+
+    @Override
+    public void onFail(String s) {
+        Log.i(TAG, "Kairos failure with response " + s);
     }
 }
