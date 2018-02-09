@@ -39,6 +39,7 @@
                 android:textSize="32sp"
                 android:layout_width="200dp"
                 android:layout_column="2"
+                android:gravity="center"
                 android:layout_weight="1">
             </TextView>
         </TableRow>

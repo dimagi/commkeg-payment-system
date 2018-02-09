@@ -115,7 +115,8 @@ public class MainActivity extends NfcActivity {
         */
 
         Button buyBeerButton = getBuyBeerCalloutButton(caseId);
-        buyBeerButton.setBackgroundResource(R.drawable.btn_default_holo_dark);
+        buyBeerButton.setWidth(200);
+        buyBeerButton.setText("Brew!");
         tableRow.addView(buyBeerButton);
 
         beerTable.addView(tableRow);
