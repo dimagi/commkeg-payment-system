@@ -28,12 +28,15 @@ import java.io.UnsupportedEncodingException;
 import be.appfoundry.nfclibrary.activities.NfcActivity;
 import com.kairos.*;
 
+import org.json.JSONArray;
 import org.json.JSONException;
+import org.json.JSONObject;
 
 public class MainActivity extends NfcActivity implements KairosListener{
 
     TextView textView;
     TableLayout beerTable;
+    Button recognizeFaceButton;
     static String currentUser = "";
     static String currentCaseId = "";
     Kairos kairos;
@@ -50,13 +53,20 @@ public class MainActivity extends NfcActivity implements KairosListener{
 
     private final String GALLERY_ID = "9999";
 
-    private static final int CAMERA_REQUEST = 1888; // field
+    private static final int CAMERA_REQUEST_ENROLL = 1888;
+    private static final int CAMERA_REQUEST_RECOGNIZE = 1999;
 
+    private static boolean requestRecognize = false;
 
-    private void takePicture(String caseId){
+    private void takeRecognizePicture(){
+        Intent cameraIntent = new  Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE);
+        startActivityForResult(cameraIntent, CAMERA_REQUEST_RECOGNIZE);
+    }
+
+    private void takeEnrollPicture(String caseId){
         currentCaseId = caseId;
         Intent cameraIntent = new  Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE);
-        startActivityForResult(cameraIntent, CAMERA_REQUEST);
+        startActivityForResult(cameraIntent, CAMERA_REQUEST_ENROLL);
     }
 
     @Override
@@ -69,6 +79,13 @@ public class MainActivity extends NfcActivity implements KairosListener{
         setContentView(R.layout.activity_main);
         textView = findViewById(R.id.text_view);
         beerTable = findViewById(R.id.beer_table);
+        recognizeFaceButton = findViewById(R.id.recognize_face);
+        recognizeFaceButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                takeRecognizePicture();
+            }
+        });
         textView.setTextSize(25);
         loadDataTable();
         setupKairos();
@@ -91,9 +108,18 @@ public class MainActivity extends NfcActivity implements KairosListener{
     }
 
     private void registerFace(Bitmap bitmap, String caseId) {
-        Log.i(TAG, "Registering face for caseId " + caseId);
+        requestRecognize = false;
         try {
             kairos.enroll(bitmap, caseId, GALLERY_ID, null, null, null, this);
+        } catch (JSONException | UnsupportedEncodingException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void recognizeFace(Bitmap bitmap) {
+        requestRecognize = true;
+        try {
+            kairos.recognize(bitmap, GALLERY_ID, null, null, null, null, this);
         } catch (JSONException | UnsupportedEncodingException e) {
             e.printStackTrace();
         }
@@ -259,7 +285,7 @@ public class MainActivity extends NfcActivity implements KairosListener{
                         makeBuyBeerCallout(caseId);
                         break;
                     case 2:
-                        takePicture(caseId);
+                        takeEnrollPicture(caseId);
                         break;
                 }
             }
@@ -299,14 +325,39 @@ public class MainActivity extends NfcActivity implements KairosListener{
         } else if (requestCode == 1) {
             textView.setText(String.format("%s successfully wrote NFC tag, you're on to something!", currentUser));
             loadDataTable();
-        } else if (requestCode == CAMERA_REQUEST && resultCode == Activity.RESULT_OK) {
+        } else if (requestCode == CAMERA_REQUEST_ENROLL && resultCode == Activity.RESULT_OK) {
             Bitmap picture = (Bitmap) data.getExtras().get("data");
             registerFace(picture, currentCaseId);
+        } else if (requestCode == CAMERA_REQUEST_RECOGNIZE && resultCode == Activity.RESULT_OK) {
+            Bitmap picture = (Bitmap) data.getExtras().get("data");
+            recognizeFace(picture);
+        }
+    }
+
+    private String parseRecognize(String response) {
+        try {
+            JSONObject jsonObject = new JSONObject(response);
+            return (String)
+                    ((JSONObject)
+                            ((JSONArray)
+                                    ((JSONObject)
+                                            ((JSONArray)jsonObject.get("images")).get(0)).get("candidates")).get(0)).get("subject_id");
+        } catch (JSONException e) {
+            return null;
         }
     }
 
     @Override
     public void onSuccess(String s) {
+        if (requestRecognize) {
+            String matchId = parseRecognize(s);
+            if (matchId != null) {
+                textView.setText(String.format("Successfully recognized ID %s", matchId));
+                makeBuyBeerCallout(matchId);
+            } else {
+                textView.setText("No matches found. Please register or select manually.");
+            }
+        }
         Log.i(TAG, "Kairos success with response " + s);
     }
 
