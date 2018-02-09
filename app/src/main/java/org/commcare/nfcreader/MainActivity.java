@@ -1,5 +1,7 @@
 package org.commcare.nfcreader;
 
+import android.app.AlertDialog;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.database.Cursor;
 import android.net.Uri;
@@ -30,6 +32,13 @@ public class MainActivity extends NfcActivity {
 
     final String TAG = "NfcMainActivity";
     private final String packageName = "org.commcare.dalvik.debug";
+    private final String SESSION_ACTION = packageName + ".action.CommCareSession";
+    private final String SESSION_REQUEST_KEY = "ccodk_session_request";
+    private final String CASE_DB_URI = "content://org.commcare.dalvik.debug.case/casedb/";
+
+    private final int BUY_BEER_NFC = 0;
+    private final int WRITE_NFC = 1;
+    private final int BUY_BEER_SELECTION = 2;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -47,7 +56,7 @@ public class MainActivity extends NfcActivity {
         Tag tag = intent.getParcelableExtra(NfcAdapter.EXTRA_TAG);
         Pair<String, Boolean> pair = readTag(tag);
         String caseId = pair.first;
-        makeCommCareCallout(caseId);
+        makeBuyBeerNfcCallout(caseId);
     }
 
     protected Pair<String, Boolean> readTag(Tag tag) {
@@ -67,7 +76,7 @@ public class MainActivity extends NfcActivity {
     }
 
     protected String getName(String caseId) {
-        Uri tableUri = Uri.parse("content://org.commcare.dalvik.debug.case/casedb/case/" + caseId);
+        Uri tableUri = Uri.parse(CASE_DB_URI + "/case/" + caseId);
         Cursor cursor = getContentResolver().query(tableUri, null, null, null, null);
         if (cursor != null) {
             cursor.moveToFirst();
@@ -89,29 +98,73 @@ public class MainActivity extends NfcActivity {
         balanceTextView.setText(balance);
         balanceTextView.setTextSize(20);
         TableRow tableRow = new TableRow(this);
+
+        nameTextView.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                createOptionsDialog(caseId);
+            }
+        });
+
         tableRow.addView(nameTextView);
         tableRow.addView(balanceTextView);
 
+        /*
+        Button writeNfcButton = getNfcCalloutButton(caseId);
+        tableRow.addView(writeNfcButton);
+        */
+
+        Button buyBeerButton = getBuyBeerCalloutButton(caseId);
+        buyBeerButton.setBackgroundResource(R.drawable.btn_default_holo_dark);
+        tableRow.addView(buyBeerButton);
+
+        beerTable.addView(tableRow);
+    }
+
+    private static String buildSessionString(String module, String form, String caseId) {
+        return String.format("COMMAND_ID %s CASE_ID case_id %s COMMAND_ID %s", module, caseId, form);
+    }
+
+    private Button getNfcCalloutButton(final String caseId) {
         Button button = new Button(this);
         button.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                setupNfcBraceletCallout(caseId);
+                makeNfcWriteCallout(caseId);
             }
         });
-        tableRow.addView(button);
-        beerTable.addView(tableRow);
+        return button;
     }
 
-    private void setupNfcBraceletCallout(String caseId) {
+    private void makeNfcWriteCallout(String caseId) {
         Intent intent = new Intent();
-        String action = "org.commcare.dalvik.debug.action.CommCareSession";
-        intent.setAction(action);
-        String sessionString = String.format("COMMAND_ID %s CASE_ID case_id %s COMMAND_ID %s", "m2", caseId, "m2-f0");
-        intent.putExtra("ccodk_session_request", sessionString);
+        intent.setAction(SESSION_ACTION);
+        String sessionString = buildSessionString("m2", "m2-f0", caseId);
+        intent.putExtra(SESSION_REQUEST_KEY, sessionString);
         currentUser = getName(caseId);
         textView.setText(String.format("Writing bracelet for %s", currentUser));
-        this.startActivityForResult(intent, 1);
+        this.startActivityForResult(intent, WRITE_NFC);
+    }
+
+    private Button getBuyBeerCalloutButton(final String caseId) {
+        Button button = new Button(this);
+        button.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                makeBuyBeerCallout(caseId);
+            }
+        });
+        return button;
+    }
+
+    private void makeBuyBeerCallout(String caseId) {
+        Intent intent = new Intent();
+        intent.setAction(SESSION_ACTION);
+        String sessionString = buildSessionString("m0", "m0-f0", caseId);
+        intent.putExtra(SESSION_REQUEST_KEY, sessionString);
+        currentUser = getName(caseId);
+        textView.setText(String.format("Buying beer for %s", currentUser));
+        this.startActivityForResult(intent, BUY_BEER_SELECTION);
     }
 
     private void setupRows(Cursor cursor) {
@@ -123,7 +176,7 @@ public class MainActivity extends NfcActivity {
             String balance = dollarFormatter("0");
             String caseId = cursor.getString(1);
             String name = cursor.getString(2);
-            Uri caseDataUri = Uri.parse("content://org.commcare.dalvik.debug.case/casedb/data/" + caseId);
+            Uri caseDataUri = Uri.parse(CASE_DB_URI + "data/" + caseId);
             Cursor caseDataCursor = getContentResolver().query(caseDataUri, null, null, null, null);
             if (caseDataCursor == null) {
                 break;
@@ -140,9 +193,29 @@ public class MainActivity extends NfcActivity {
         cursor.close();
     }
 
+    private void createOptionsDialog(final String caseId) {
+        CharSequence options[] = new CharSequence[] {"Write NFC", "Buy Beer"};
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Select Action");
+        builder.setItems(options, new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                switch (which) {
+                    case 0:
+                        makeNfcWriteCallout(caseId);
+                        break;
+                    case 1:
+                        makeBuyBeerCallout(caseId);
+                        break;
+                }
+            }
+        });
+        builder.show();
+    }
+
     protected void loadDataTable() {
         clearRows();
-        Uri tableUri = Uri.parse("content://org.commcare.dalvik.debug.case/casedb/case/");
+        Uri tableUri = Uri.parse(CASE_DB_URI + "case/");
         Cursor cursor = getContentResolver().query(tableUri, null, null, null, null);
         setupRows(cursor);
     }
@@ -153,15 +226,14 @@ public class MainActivity extends NfcActivity {
         }
     }
 
-    protected void makeCommCareCallout(String caseId) {
+    protected void makeBuyBeerNfcCallout(String caseId) {
         Intent intent = new Intent();
-        String action = "org.commcare.dalvik.debug.action.CommCareSession";
-        intent.setAction(action);
-        String sessionString = String.format("COMMAND_ID %s CASE_ID case_id %s COMMAND_ID %s", "m0", caseId, "m0-f0");
-        intent.putExtra("ccodk_session_request", sessionString);
+        intent.setAction(SESSION_ACTION);
+        String sessionString = buildSessionString("m0", "m0-f0", caseId);
+        intent.putExtra(SESSION_REQUEST_KEY, sessionString);
         currentUser = getName(caseId);
         textView.setText(String.format("Buying beer for %s", currentUser));
-        this.startActivityForResult(intent, 0);
+        this.startActivityForResult(intent, BUY_BEER_NFC);
     }
 
     @Override
