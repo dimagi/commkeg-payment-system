@@ -1,3 +1,8 @@
 <resources>
     <string name="app_name">CommKeg Funtegration Payment System</string>
+    <string name="scan_explanation">Tap NFC tag on back of device to purchase a beer</string>
+    <string name="name">Name</string>
+    <string name="balance">Balance</string>
+    <string name="write_tag">Write Tag</string>
+    <string name="buy_beer">Buy Beer</string>
 </resources>

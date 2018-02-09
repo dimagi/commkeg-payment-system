@@ -9,7 +9,7 @@
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Scan NFC tag on back of device to purchase a beer"
+        android:text="@string/scan_explanation"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintLeft_toLeftOf="parent"
         app:layout_constraintRight_toRightOf="parent"
@@ -24,18 +24,18 @@
         android:layout_weight="0"
         android:padding="5dp">
         <TableRow>
-            <TextView android:text="Name"
+            <TextView android:text="@string/name"
                 android:layout_width="200dp"
                 android:textSize="32sp"
                 android:layout_column="0"
                 android:layout_weight="1"/>
-            <TextView android:text="Balance"
+            <TextView android:text="@string/balance"
                 android:textSize="32sp"
                 android:layout_width="200dp"
                 android:layout_column="1"
                 android:layout_weight="1">
             </TextView>
-            <TextView android:text="Write Tag"
+            <TextView android:text="@string/buy_beer"
                 android:textSize="32sp"
                 android:layout_width="200dp"
                 android:layout_column="2"
