@@ -109,6 +109,7 @@ public class MainActivity extends NfcActivity implements KairosListener{
 
     private void registerFace(Bitmap bitmap, String caseId) {
         requestRecognize = false;
+        textView.setText("Enrolling face for caseId " + caseId);
         try {
             kairos.enroll(bitmap, caseId, GALLERY_ID, null, null, null, this);
         } catch (JSONException | UnsupportedEncodingException e) {
@@ -118,6 +119,7 @@ public class MainActivity extends NfcActivity implements KairosListener{
 
     private void recognizeFace(Bitmap bitmap) {
         requestRecognize = true;
+        textView.setText("Recognizing face");
         try {
             kairos.recognize(bitmap, GALLERY_ID, null, null, null, null, this);
         } catch (JSONException | UnsupportedEncodingException e) {
@@ -364,5 +366,6 @@ public class MainActivity extends NfcActivity implements KairosListener{
     @Override
     public void onFail(String s) {
         Log.i(TAG, "Kairos failure with response " + s);
+        textView.setText("Kairos failure with response " + s);
     }
 }
