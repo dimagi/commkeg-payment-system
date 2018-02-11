@@ -1,57 +1,64 @@
 <?xml version="1.0" encoding="utf-8"?>
-<android.support.constraint.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:orientation="vertical"
     tools:context="org.commcare.nfcreader.MainActivity">
 
     <TextView
+        android:id="@+id/text_view"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="@string/scan_explanation"
-        app:layout_constraintLeft_toLeftOf="parent"
-        app:layout_constraintRight_toRightOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        android:id="@+id/text_view"/>
+        android:paddingBottom="10dp"
+        android:paddingTop="10dp"
+        android:text="@string/scan_explanation" />
+
+    <ScrollView
+        android:layout_width="fill_parent"
+        android:layout_height="fill_parent"
+        android:layout_weight="1"
+        android:scrollbars="none">
+
+        <TableLayout xmlns:android="http://schemas.android.com/apk/res/android"
+            android:id="@+id/beer_table"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_weight="0"
+            android:padding="5dp">
+
+            <TableRow>
+                <TextView
+                    android:layout_width="200dp"
+                    android:layout_column="0"
+                    android:layout_weight="1"
+                    android:text="@string/name"
+                    android:textSize="32sp" />
+                <TextView
+                    android:layout_width="200dp"
+                    android:layout_column="1"
+                    android:layout_weight="1"
+                    android:text="@string/balance"
+                    android:textSize="32sp"></TextView>
+                <TextView
+                    android:layout_width="200dp"
+                    android:layout_column="2"
+                    android:layout_weight="1"
+                    android:gravity="center"
+                    android:text="@string/buy_beer"
+                    android:textSize="32sp"></TextView>
+            </TableRow>
+        </TableLayout>
+    </ScrollView>
 
     <Button
         android:id="@+id/recognize_face"
-        android:layout_width="wrap_content"
+        android:layout_width="fill_parent"
         android:layout_height="wrap_content"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintLeft_toLeftOf="parent"
-        app:layout_constraintRight_toRightOf="parent"
+        android:text="Recognize Face"
         android:textSize="32sp"
-        android:text="Recognize Face"/>
+        android:paddingTop="10dp"
+        android:gravity="center" />
 
-
-    <TableLayout xmlns:android="http://schemas.android.com/apk/res/android"
-        android:id = "@+id/beer_table"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_weight="0"
-        android:padding="5dp">
-        <TableRow>
-            <TextView android:text="@string/name"
-                android:layout_width="200dp"
-                android:textSize="32sp"
-                android:layout_column="0"
-                android:layout_weight="1"/>
-            <TextView android:text="@string/balance"
-                android:textSize="32sp"
-                android:layout_width="200dp"
-                android:layout_column="1"
-                android:layout_weight="1">
-            </TextView>
-            <TextView android:text="@string/buy_beer"
-                android:textSize="32sp"
-                android:layout_width="200dp"
-                android:layout_column="2"
-                android:gravity="center"
-                android:layout_weight="1">
-            </TextView>
-        </TableRow>
-    </TableLayout>
-
-</android.support.constraint.ConstraintLayout>
+</LinearLayout>

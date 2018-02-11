@@ -47,6 +47,9 @@ public class MainActivity extends NfcActivity implements KairosListener{
     private final String SESSION_REQUEST_KEY = "ccodk_session_request";
     private final String CASE_DB_URI = "content://org.commcare.dalvik.debug.case/casedb/";
 
+    private final String CURRENT_USER_KEY = "CURRENT_USER";
+    private final String CURRENT_CASE_ID_KEY = "CURRENT_CASE_ID";
+
     private final int BUY_BEER_NFC = 0;
     private final int WRITE_NFC = 1;
     private final int BUY_BEER_SELECTION = 2;
@@ -56,7 +59,18 @@ public class MainActivity extends NfcActivity implements KairosListener{
     private static final int CAMERA_REQUEST_ENROLL = 1888;
     private static final int CAMERA_REQUEST_RECOGNIZE = 1999;
 
+    private final String KAIOS_APP_ID = getAppId();
+    private final String KAIROS_API_KEY = getApiKey();
+
     private static boolean requestRecognize = false;
+
+    private String getAppId() {
+        return BuildConfig.kairosAppId;
+    }
+
+    private String getApiKey() {
+        return BuildConfig.kairosApiKey;
+    }
 
     private void takeRecognizePicture(){
         Intent cameraIntent = new  Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE);
@@ -73,8 +87,8 @@ public class MainActivity extends NfcActivity implements KairosListener{
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         if (savedInstanceState != null) {
-            currentUser = savedInstanceState.getString("CURRENT_USER", "");
-            currentCaseId = savedInstanceState.getString("CURRENT_CASE_ID", "");
+            currentUser = savedInstanceState.getString(CURRENT_USER_KEY, "");
+            currentCaseId = savedInstanceState.getString(CURRENT_CASE_ID_KEY, "");
         }
         setContentView(R.layout.activity_main);
         textView = findViewById(R.id.text_view);
@@ -94,17 +108,13 @@ public class MainActivity extends NfcActivity implements KairosListener{
     @Override
     public void onSaveInstanceState(Bundle savedInstanceState) {
         super.onSaveInstanceState(savedInstanceState);
-        savedInstanceState.putString("CURRENT_USER", currentUser);
-        savedInstanceState.putString("CURRENT_CASE_ID", currentCaseId);
+        savedInstanceState.putString(CURRENT_USER_KEY, currentUser);
+        savedInstanceState.putString(CURRENT_CASE_ID_KEY, currentCaseId);
     }
 
     private void setupKairos() {
-        // instantiate a new kairos instance
         kairos = new Kairos();
-        // set authentication
-        String app_id = "1bbb1b34";
-        String api_key = "93fdc40b3d877ea0d64a2c90aca725d2";
-        kairos.setAuthentication(this, app_id, api_key);
+        kairos.setAuthentication(this, KAIOS_APP_ID, KAIROS_API_KEY);
     }
 
     private void registerFace(Bitmap bitmap, String caseId) {
@@ -175,8 +185,15 @@ public class MainActivity extends NfcActivity implements KairosListener{
         balanceTextView.setText(balance);
         balanceTextView.setTextSize(20);
         TableRow tableRow = new TableRow(this);
+        tableRow.setMinimumHeight(120);
 
         nameTextView.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                createOptionsDialog(caseId);
+            }
+        });
+        tableRow.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 createOptionsDialog(caseId);
@@ -321,7 +338,7 @@ public class MainActivity extends NfcActivity implements KairosListener{
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         // Check which request we're responding to
-        if (requestCode == 0) {
+        if (requestCode == 0 || requestCode == 2) {
             textView.setText(String.format("%s successfully purchased beer, way to go bud!", currentUser));
             loadDataTable();
         } else if (requestCode == 1) {
