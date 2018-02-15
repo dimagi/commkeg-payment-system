@@ -39,6 +39,7 @@ public class MainActivity extends NfcActivity implements KairosListener{
     Button recognizeFaceButton;
     static String currentUser = "";
     static String currentCaseId = "";
+    static int balanceTotal = 0;
     Kairos kairos;
 
     final String TAG = "NfcMainActivity";
@@ -203,11 +204,6 @@ public class MainActivity extends NfcActivity implements KairosListener{
         tableRow.addView(nameTextView);
         tableRow.addView(balanceTextView);
 
-        /*
-        Button writeNfcButton = getNfcCalloutButton(caseId);
-        tableRow.addView(writeNfcButton);
-        */
-
         Button buyBeerButton = getBuyBeerCalloutButton(caseId);
         buyBeerButton.setWidth(200);
         buyBeerButton.setText("Brew!");
@@ -268,6 +264,7 @@ public class MainActivity extends NfcActivity implements KairosListener{
             Log.w(TAG, "Could not setup rows with null cursor");
             return;
         }
+        balanceTotal = 0;
         while (cursor.moveToNext()) {
             String balance = dollarFormatter("0");
             String caseId = cursor.getString(1);
@@ -280,12 +277,20 @@ public class MainActivity extends NfcActivity implements KairosListener{
             while (caseDataCursor.moveToNext()) {
                 String dataKey = caseDataCursor.getString(2);
                 if ("balance".equals(dataKey)) {
-                    balance = dollarFormatter(caseDataCursor.getString(3));
+                    String balanceRaw = caseDataCursor.getString(3);
+                    balance = dollarFormatter(balanceRaw);
+                    try {
+                        int balanceInt = Integer.parseInt(balanceRaw);
+                        balanceTotal -= balanceInt;
+                    } catch (NumberFormatException e){
+                        // Pass
+                    }
                 }
             }
             caseDataCursor.close();
             addRow(name, balance, caseId);
         }
+        textView.setText(String.format("$%s.00 of cold, fresh joy sold!", balanceTotal));
         cursor.close();
     }
 
