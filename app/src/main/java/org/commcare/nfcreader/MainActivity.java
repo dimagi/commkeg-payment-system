@@ -21,16 +21,25 @@ import android.widget.Button;
 import android.widget.TableLayout;
 import android.widget.TableRow;
 import android.widget.TextView;
+import android.widget.Toast;
+
+import com.kairos.Kairos;
+import com.kairos.KairosListener;
+import com.wonderkiln.camerakit.CameraKitError;
+import com.wonderkiln.camerakit.CameraKitEvent;
+import com.wonderkiln.camerakit.CameraKitEventListener;
+import com.wonderkiln.camerakit.CameraKitImage;
+import com.wonderkiln.camerakit.CameraKitVideo;
+import com.wonderkiln.camerakit.CameraView;
+
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 
 import be.appfoundry.nfclibrary.activities.NfcActivity;
-import com.kairos.*;
-
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
 
 public class MainActivity extends NfcActivity implements KairosListener{
 
@@ -57,13 +66,12 @@ public class MainActivity extends NfcActivity implements KairosListener{
 
     private final String GALLERY_ID = "9999";
 
-    private static final int CAMERA_REQUEST_ENROLL = 1888;
-    private static final int CAMERA_REQUEST_RECOGNIZE = 1999;
-
     private final String KAIOS_APP_ID = getAppId();
     private final String KAIROS_API_KEY = getApiKey();
 
     private static boolean requestRecognize = false;
+
+    CameraView cameraView;
 
     private String getAppId() {
         return BuildConfig.kairosAppId;
@@ -74,14 +82,16 @@ public class MainActivity extends NfcActivity implements KairosListener{
     }
 
     private void takeRecognizePicture(){
-        Intent cameraIntent = new  Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE);
-        startActivityForResult(cameraIntent, CAMERA_REQUEST_RECOGNIZE);
+        notifyMessage("Taking picture...");
+        requestRecognize = true;
+        cameraView.captureImage();
     }
 
     private void takeEnrollPicture(String caseId){
+        notifyMessage("Taking picture...");
+        requestRecognize = false;
         currentCaseId = caseId;
-        Intent cameraIntent = new  Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE);
-        startActivityForResult(cameraIntent, CAMERA_REQUEST_ENROLL);
+        cameraView.captureImage();
     }
 
     @Override
@@ -104,6 +114,53 @@ public class MainActivity extends NfcActivity implements KairosListener{
         textView.setTextSize(25);
         loadDataTable();
         setupKairos();
+        cameraView = findViewById(R.id.camera);
+
+        cameraView.addCameraKitListener(new CameraKitEventListener() {
+
+            @Override
+            public void onEvent(CameraKitEvent cameraKitEvent) {
+                switch (cameraKitEvent.getType()) {
+                    case CameraKitEvent.TYPE_CAMERA_OPEN:
+                        break;
+
+                    case CameraKitEvent.TYPE_CAMERA_CLOSE:
+                        break;
+                }
+            }
+
+            @Override
+            public void onError(CameraKitError cameraKitError) {
+
+            }
+
+            @Override
+            public void onImage(CameraKitImage cameraKitImage) {
+                notifyMessage("Received image");
+                if (requestRecognize) {
+                    recognizeFace(cameraKitImage.getBitmap());
+                } else {
+                    registerFace(cameraKitImage.getBitmap(), currentCaseId);
+                }
+            }
+
+            @Override
+            public void onVideo(CameraKitVideo cameraKitVideo) {
+
+            }
+        });
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        cameraView.start();
+    }
+
+    @Override
+    protected void onPause() {
+        cameraView.stop();
+        super.onPause();
     }
 
     @Override
@@ -113,6 +170,11 @@ public class MainActivity extends NfcActivity implements KairosListener{
         savedInstanceState.putString(CURRENT_CASE_ID_KEY, currentCaseId);
     }
 
+    private void notifyMessage(String message) {
+        textView.setText(message);
+        Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
+    }
+
     private void setupKairos() {
         kairos = new Kairos();
         kairos.setAuthentication(this, KAIOS_APP_ID, KAIROS_API_KEY);
@@ -120,7 +182,7 @@ public class MainActivity extends NfcActivity implements KairosListener{
 
     private void registerFace(Bitmap bitmap, String caseId) {
         requestRecognize = false;
-        textView.setText("Enrolling face for caseId " + caseId);
+        notifyMessage("Enrolling face for caseId " + caseId);
         try {
             kairos.enroll(bitmap, caseId, GALLERY_ID, null, null, null, this);
         } catch (JSONException | UnsupportedEncodingException e) {
@@ -130,7 +192,7 @@ public class MainActivity extends NfcActivity implements KairosListener{
 
     private void recognizeFace(Bitmap bitmap) {
         requestRecognize = true;
-        textView.setText("Recognizing face");
+        notifyMessage("Recognizing face");
         try {
             kairos.recognize(bitmap, GALLERY_ID, null, null, null, null, this);
         } catch (JSONException | UnsupportedEncodingException e) {
@@ -255,7 +317,7 @@ public class MainActivity extends NfcActivity implements KairosListener{
         String sessionString = buildSessionString("m0", "m0-f0", caseId);
         intent.putExtra(SESSION_REQUEST_KEY, sessionString);
         currentUser = getName(caseId);
-        textView.setText(String.format("Buying beer for %s", currentUser));
+        notifyMessage(String.format("Buying beer for %s", currentUser));
         this.startActivityForResult(intent, BUY_BEER_SELECTION);
     }
 
@@ -295,7 +357,7 @@ public class MainActivity extends NfcActivity implements KairosListener{
     }
 
     private void createOptionsDialog(final String caseId) {
-        CharSequence options[] = new CharSequence[]{"Write NFC", "Buy Beer", "Register Face"};
+        CharSequence options[] = new CharSequence[]{"Write NFC", "Buy Beer", "Register Face", "Delete"};
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("Select Action");
         builder.setItems(options, new DialogInterface.OnClickListener() {
@@ -311,10 +373,21 @@ public class MainActivity extends NfcActivity implements KairosListener{
                     case 2:
                         takeEnrollPicture(caseId);
                         break;
+                    case 3:
+                        deletePictures(caseId);
+                        break;
                 }
             }
         });
         builder.show();
+    }
+
+    private void deletePictures(String caseId) {
+        try {
+            kairos.deleteSubject(caseId, GALLERY_ID, this);
+        } catch (JSONException | UnsupportedEncodingException e) {
+            e.printStackTrace();
+        }
     }
 
     protected void loadDataTable() {
@@ -344,17 +417,11 @@ public class MainActivity extends NfcActivity implements KairosListener{
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         // Check which request we're responding to
         if (requestCode == 0 || requestCode == 2) {
-            textView.setText(String.format("%s successfully purchased beer, way to go bud!", currentUser));
             loadDataTable();
+            textView.setText(String.format("%s successfully purchased beer, way to go bud!", currentUser));
         } else if (requestCode == 1) {
             textView.setText(String.format("%s successfully wrote NFC tag, you're on to something!", currentUser));
             loadDataTable();
-        } else if (requestCode == CAMERA_REQUEST_ENROLL && resultCode == Activity.RESULT_OK) {
-            Bitmap picture = (Bitmap) data.getExtras().get("data");
-            registerFace(picture, currentCaseId);
-        } else if (requestCode == CAMERA_REQUEST_RECOGNIZE && resultCode == Activity.RESULT_OK) {
-            Bitmap picture = (Bitmap) data.getExtras().get("data");
-            recognizeFace(picture);
         }
     }
 
@@ -379,7 +446,7 @@ public class MainActivity extends NfcActivity implements KairosListener{
                 textView.setText(String.format("Successfully recognized ID %s", matchId));
                 makeBuyBeerCallout(matchId);
             } else {
-                textView.setText("No matches found. Please register or select manually.");
+                notifyMessage("No matches found. Please register or select manually.");
             }
         }
         Log.i(TAG, "Kairos success with response " + s);
@@ -388,6 +455,6 @@ public class MainActivity extends NfcActivity implements KairosListener{
     @Override
     public void onFail(String s) {
         Log.i(TAG, "Kairos failure with response " + s);
-        textView.setText("Kairos failure with response " + s);
+        notifyMessage("Kairos failure with response " + s);
     }
 }
