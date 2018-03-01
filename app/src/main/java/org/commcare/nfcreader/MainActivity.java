@@ -6,6 +6,7 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.database.Cursor;
 import android.graphics.Bitmap;
+import android.graphics.Color;
 import android.net.Uri;
 import android.nfc.FormatException;
 import android.nfc.NdefMessage;
@@ -13,8 +14,10 @@ import android.nfc.NdefRecord;
 import android.nfc.Tag;
 import android.nfc.tech.Ndef;
 import android.os.Bundle;
+import android.text.Layout;
 import android.util.Log;
 import android.util.Pair;
+import android.view.Gravity;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TableLayout;
@@ -244,6 +247,10 @@ public class MainActivity extends Activity implements KairosListener {
         beerTable.addView(tableRow);
     }
 
+    private static String buildSessionString(String module, String form) {
+        return String.format("COMMAND_ID %s COMMAND_ID %s", module, form);
+    }
+
     private static String buildSessionString(String module, String form, String caseId) {
         return String.format("COMMAND_ID %s CASE_ID case_id %s COMMAND_ID %s", module, caseId, form);
     }
@@ -266,6 +273,14 @@ public class MainActivity extends Activity implements KairosListener {
         intent.putExtra(SESSION_REQUEST_KEY, sessionString);
         currentUser = getName(caseId);
         notifyMessage(String.format("Buying beer for %s", currentUser));
+        this.startActivityForResult(intent, BUY_BEER_SELECTION);
+    }
+
+    private void makeRegisterDrinkerCallout() {
+        Intent intent = new Intent();
+        intent.setAction(SESSION_ACTION);
+        String sessionString = buildSessionString("m1", "m1-f0");
+        intent.putExtra(SESSION_REQUEST_KEY, sessionString);
         this.startActivityForResult(intent, BUY_BEER_SELECTION);
     }
 
@@ -300,8 +315,29 @@ public class MainActivity extends Activity implements KairosListener {
             caseDataCursor.close();
             addRow(name, balance, caseId);
         }
+        addRegisterDrinkerRow();
         textView.setText(String.format("$%s.00 of cold, fresh joy sold!", balanceTotal));
         cursor.close();
+    }
+
+    private void addRegisterDrinkerRow() {
+        TableRow tableRow = new TableRow(this);
+        tableRow.setMinimumHeight(120);
+        tableRow.setGravity(Gravity.CENTER_HORIZONTAL);
+        TextView nameTextView = new TextView(this);
+        nameTextView.setBackgroundColor(Color.GREEN);
+        nameTextView.setTextSize(30);
+        nameTextView.setText(R.string.register_drinker);
+        nameTextView.setGravity(Gravity.CENTER_HORIZONTAL);
+        nameTextView.setPadding(5, 5, 5, 5);
+        tableRow.addView(nameTextView);
+        tableRow.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                makeRegisterDrinkerCallout();
+            }
+        });
+        beerTable.addView(tableRow);
     }
 
     private void createOptionsDialog(final String caseId) {

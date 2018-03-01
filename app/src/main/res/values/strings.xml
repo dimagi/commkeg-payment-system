@@ -5,4 +5,5 @@
     <string name="balance">Balance</string>
     <string name="write_tag">Write Tag</string>
     <string name="buy_beer">Buy Beer</string>
+    <string name="register_drinker">REGISTER DRINKER</string>
 </resources>
