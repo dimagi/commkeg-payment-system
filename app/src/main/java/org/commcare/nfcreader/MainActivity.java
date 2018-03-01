@@ -10,7 +10,6 @@ import android.net.Uri;
 import android.nfc.FormatException;
 import android.nfc.NdefMessage;
 import android.nfc.NdefRecord;
-import android.nfc.NfcAdapter;
 import android.nfc.Tag;
 import android.nfc.tech.Ndef;
 import android.os.Bundle;
@@ -39,9 +38,7 @@ import org.json.JSONObject;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 
-import be.appfoundry.nfclibrary.activities.NfcActivity;
-
-public class MainActivity extends NfcActivity implements KairosListener{
+public class MainActivity extends Activity implements KairosListener {
 
     TextView textView;
     TableLayout beerTable;
@@ -60,8 +57,6 @@ public class MainActivity extends NfcActivity implements KairosListener{
     private final String CURRENT_USER_KEY = "CURRENT_USER";
     private final String CURRENT_CASE_ID_KEY = "CURRENT_CASE_ID";
 
-    private final int BUY_BEER_NFC = 0;
-    private final int WRITE_NFC = 1;
     private final int BUY_BEER_SELECTION = 2;
 
     private final String GALLERY_ID = "9999";
@@ -200,31 +195,6 @@ public class MainActivity extends NfcActivity implements KairosListener{
         }
     }
 
-    @Override
-    protected void onNewIntent(Intent intent) {
-        super.onNewIntent(intent);
-        Tag tag = intent.getParcelableExtra(NfcAdapter.EXTRA_TAG);
-        Pair<String, Boolean> pair = readTag(tag);
-        String caseId = pair.first;
-        makeBuyBeerNfcCallout(caseId);
-    }
-
-    protected Pair<String, Boolean> readTag(Tag tag) {
-        try {
-            Ndef ndefObject = Ndef.get(tag);
-            ndefObject.connect();
-            NdefMessage msg = ndefObject.getNdefMessage();
-            if (msg == null) {
-                return null;
-            }
-            NdefRecord firstRecord = msg.getRecords()[0];
-            return NdefRecordUtil.readValueFromRecord(firstRecord, new String[]{"text"}, null);
-        } catch (FormatException | IOException e) {
-            e.printStackTrace();
-        }
-        return null;
-    }
-
     protected String getName(String caseId) {
         Uri tableUri = Uri.parse(CASE_DB_URI + "/case/" + caseId);
         Cursor cursor = getContentResolver().query(tableUri, null, null, null, null);
@@ -276,28 +246,6 @@ public class MainActivity extends NfcActivity implements KairosListener{
 
     private static String buildSessionString(String module, String form, String caseId) {
         return String.format("COMMAND_ID %s CASE_ID case_id %s COMMAND_ID %s", module, caseId, form);
-    }
-
-    private Button getNfcCalloutButton(final String caseId) {
-        Button button = new Button(this);
-        button.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                makeNfcWriteCallout(caseId);
-            }
-        });
-        return button;
-    }
-
-    private void makeNfcWriteCallout(String caseId) {
-        Intent intent = new Intent();
-        intent.setAction(SESSION_ACTION);
-        String sessionString = buildSessionString("m2", "m2-f0", caseId);
-        intent.putExtra(SESSION_REQUEST_KEY, sessionString);
-        currentUser = getName(caseId);
-        currentCaseId = caseId;
-        textView.setText(String.format("Writing bracelet for %s", currentUser));
-        this.startActivityForResult(intent, WRITE_NFC);
     }
 
     private Button getBuyBeerCalloutButton(final String caseId) {
@@ -357,7 +305,7 @@ public class MainActivity extends NfcActivity implements KairosListener{
     }
 
     private void createOptionsDialog(final String caseId) {
-        CharSequence options[] = new CharSequence[]{"Write NFC", "Buy Beer", "Register Face", "Delete"};
+        CharSequence options[] = new CharSequence[]{"Buy Beer", "Register Face", "Delete"};
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("Select Action");
         builder.setItems(options, new DialogInterface.OnClickListener() {
@@ -365,15 +313,12 @@ public class MainActivity extends NfcActivity implements KairosListener{
             public void onClick(DialogInterface dialog, int which) {
                 switch (which) {
                     case 0:
-                        makeNfcWriteCallout(caseId);
-                        break;
-                    case 1:
                         makeBuyBeerCallout(caseId);
                         break;
-                    case 2:
+                    case 1:
                         takeEnrollPicture(caseId);
                         break;
-                    case 3:
+                    case 2:
                         deletePictures(caseId);
                         break;
                 }
@@ -401,16 +346,6 @@ public class MainActivity extends NfcActivity implements KairosListener{
         while (beerTable.getChildCount() > 1) {
             beerTable.removeView(beerTable.getChildAt(beerTable.getChildCount() - 1));
         }
-    }
-
-    protected void makeBuyBeerNfcCallout(String caseId) {
-        Intent intent = new Intent();
-        intent.setAction(SESSION_ACTION);
-        String sessionString = buildSessionString("m0", "m0-f0", caseId);
-        intent.putExtra(SESSION_REQUEST_KEY, sessionString);
-        currentUser = getName(caseId);
-        textView.setText(String.format("Buying beer for %s", currentUser));
-        this.startActivityForResult(intent, BUY_BEER_NFC);
     }
 
     @Override
