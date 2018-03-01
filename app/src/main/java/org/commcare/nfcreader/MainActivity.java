@@ -2,21 +2,19 @@ package org.commcare.nfcreader;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.ContentValues;
+import android.content.Context;
+import android.content.ContextWrapper;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.net.Uri;
-import android.nfc.FormatException;
-import android.nfc.NdefMessage;
-import android.nfc.NdefRecord;
-import android.nfc.Tag;
-import android.nfc.tech.Ndef;
 import android.os.Bundle;
-import android.text.Layout;
+import android.os.Environment;
+import android.provider.MediaStore;
 import android.util.Log;
-import android.util.Pair;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.Button;
@@ -38,8 +36,12 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.text.DateFormat;
+import java.util.Date;
 
 public class MainActivity extends Activity implements KairosListener {
 
@@ -79,13 +81,13 @@ public class MainActivity extends Activity implements KairosListener {
         return BuildConfig.kairosApiKey;
     }
 
-    private void takeRecognizePicture(){
+    private void takeRecognizePicture() {
         notifyMessage("Taking picture...");
         requestRecognize = true;
         cameraView.captureImage();
     }
 
-    private void takeEnrollPicture(String caseId){
+    private void takeEnrollPicture(String caseId) {
         notifyMessage("Taking picture...");
         requestRecognize = false;
         currentCaseId = caseId;
@@ -135,10 +137,13 @@ public class MainActivity extends Activity implements KairosListener {
             @Override
             public void onImage(CameraKitImage cameraKitImage) {
                 notifyMessage("Received image");
+                Bitmap bitmap = cameraKitImage.getBitmap();
+                String filePath = saveToInternalStorage(bitmap);
+                addImageToGallery(filePath, getApplicationContext());
                 if (requestRecognize) {
-                    recognizeFace(cameraKitImage.getBitmap());
+                    recognizeFace(bitmap);
                 } else {
-                    registerFace(cameraKitImage.getBitmap(), currentCaseId);
+                    registerFace(bitmap, currentCaseId);
                 }
             }
 
@@ -307,7 +312,7 @@ public class MainActivity extends Activity implements KairosListener {
                     try {
                         int balanceInt = Integer.parseInt(balanceRaw);
                         balanceTotal -= balanceInt;
-                    } catch (NumberFormatException e){
+                    } catch (NumberFormatException e) {
                         // Pass
                     }
                 }
@@ -318,6 +323,41 @@ public class MainActivity extends Activity implements KairosListener {
         addRegisterDrinkerRow();
         textView.setText(String.format("$%s.00 of cold, fresh joy sold!", balanceTotal));
         cursor.close();
+    }
+
+    public static void addImageToGallery(final String filePath, final Context context) {
+
+        ContentValues values = new ContentValues();
+
+        values.put(MediaStore.Images.Media.DATE_TAKEN, System.currentTimeMillis());
+        values.put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg");
+        values.put(MediaStore.MediaColumns.DATA, filePath);
+
+        context.getContentResolver().insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
+    }
+
+    private String saveToInternalStorage(Bitmap bitmapImage) {
+        // path to /data/data/yourapp/app_data/imageDir
+        String path = Environment.getExternalStorageDirectory().toString();
+        // Create imageDir
+        String currentDateTimeString = DateFormat.getDateTimeInstance().format(new Date());
+        File file = new File(path, String.format("%s.jpg", currentDateTimeString));
+
+        FileOutputStream fos = null;
+        try {
+            fos = new FileOutputStream(file);
+            // Use the compress method on the BitMap object to write image to the OutputStream
+            bitmapImage.compress(Bitmap.CompressFormat.PNG, 100, fos);
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            try {
+                fos.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        return file.getAbsolutePath();
     }
 
     private void addRegisterDrinkerRow() {
